@@ -26,12 +26,13 @@ public class MpowerSocketHandler extends BaseThingHandler {
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        Bridge mPower = this.getBridge();
-        if (mPower != null && mPower.getHandler() instanceof MpowerHandler) {
-            MpowerHandler handler = (MpowerHandler) mPower.getHandler();
-            int sockNumber = Integer
-                    .parseInt(thing.getProperties().get(MpowerBindingConstants.SOCKET_NUMBER_PROP_NAME));
-            if (command instanceof OnOffType) {
+        if (command instanceof OnOffType) {
+            Bridge mPower = this.getBridge();
+            if (mPower != null && mPower.getHandler() instanceof MpowerHandler) {
+                MpowerHandler handler = (MpowerHandler) mPower.getHandler();
+                int sockNumber = Integer.parseInt(
+                        thing.getConfiguration().get(MpowerBindingConstants.SOCKET_NUMBER_PROP_NAME).toString());
+
                 OnOffType type = (OnOffType) command;
                 handler.sendSwitchCommandToMPower(sockNumber, type);
             }

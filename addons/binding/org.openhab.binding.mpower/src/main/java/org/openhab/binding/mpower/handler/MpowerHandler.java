@@ -70,20 +70,24 @@ public class MpowerHandler extends BaseBridgeHandler {
                     logger.trace(connector.getId() + " is running!");
                 } else {
                     logger.info(connector.getId() + " is not running! Trying to restart.");
-                    connector.start();
+                    // connector.start();
                 }
             }
         };
         watchDogJob = scheduler.scheduleAtFixedRate(runnable, 0, 60, TimeUnit.SECONDS);
 
         updateStatus(ThingStatus.UNKNOWN);
-        // an extra discovery service immediately adds the required socket things
-        registerDeviceDiscoveryService();
+
         String model = getThing().getProperties().get(MpowerBindingConstants.DEVICE_MODEL_PROP_NAME);
-        String noOfSocketsString = model.substring(1, 2);
-        int noOfSockets = Integer.parseInt(noOfSocketsString);
-        for (int i = 1; i <= noOfSockets; i++) {
-            discoveryService.onDeviceAddedInternal(getThing().getUID(), getThing().getLabel(), i);
+        // socket discovery only when mPower has been discovered??
+        if (StringUtils.isNotBlank(model)) {
+            // an extra discovery service immediately adds the required socket things
+            registerDeviceDiscoveryService();
+            String noOfSocketsString = model.substring(1, 2);
+            int noOfSockets = Integer.parseInt(noOfSocketsString);
+            for (int i = 1; i <= noOfSockets; i++) {
+                discoveryService.onDeviceAddedInternal(getThing().getUID(), getThing().getLabel(), i);
+            }
         }
 
         // validate config
@@ -96,8 +100,10 @@ public class MpowerHandler extends BaseBridgeHandler {
         }
 
         // start the connector
-        connector = new MpowerSSHConnector(config.getHost(), config.getUsername(), config.getPassword(),
-                config.getRefresh(), this);
+        if (connector == null) {
+            connector = new MpowerSSHConnector(config.getHost(), config.getUsername(), config.getPassword(),
+                    config.getRefresh(), this);
+        }
         connector.start();
         if (connector.isRunning()) {
             updateStatus(ThingStatus.ONLINE);
@@ -110,7 +116,6 @@ public class MpowerHandler extends BaseBridgeHandler {
      * Core feature: update channels with data from mpower
      *
      * finds all things (sockets) and updates it from the core mpower data
-     * TODO: update only of required (use a cache)
      *
      * @param state
      */
@@ -118,11 +123,12 @@ public class MpowerHandler extends BaseBridgeHandler {
         // maybe change status here? Its back online once there comes data.
         for (Thing thing : getThing().getThings()) {
             int sockNumber = Integer
-                    .parseInt(thing.getProperties().get(MpowerBindingConstants.SOCKET_NUMBER_PROP_NAME));
+                    .parseInt(thing.getConfiguration().get(MpowerBindingConstants.SOCKET_NUMBER_PROP_NAME).toString());
             if (mpowerSocketState.getSocket() == sockNumber) {
                 MpowerSocketHandler handler = (MpowerSocketHandler) thing.getHandler();
                 MpowerSocketState oldState = handler.getCurrentState();
                 boolean needsUpdate = System.currentTimeMillis() > handler.getLastUpdate() + this.refresh;
+                logger.debug(thing.getUID().getAsString() + "needs update:" + needsUpdate);
                 if (needsUpdate && (oldState == null || !oldState.equals(mpowerSocketState))) {
                     DecimalType powerState = new DecimalType(mpowerSocketState.getPower());
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_POWER).getUID(), powerState);
@@ -133,6 +139,7 @@ public class MpowerHandler extends BaseBridgeHandler {
                     OnOffType outletState = mpowerSocketState.isOn() ? OnOffType.ON : OnOffType.OFF;
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_OUTLET).getUID(), outletState);
                     handler.setLastUpdate(System.currentTimeMillis());
+                    handler.setCurrentState(mpowerSocketState);
                 }
 
             }

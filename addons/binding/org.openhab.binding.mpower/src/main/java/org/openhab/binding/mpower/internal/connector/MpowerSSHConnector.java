@@ -48,6 +48,7 @@ public class MpowerSSHConnector {
      * Starts the connector
      */
     public void start() {
+        logger.debug("connection attempt");
         Properties config = new Properties();
         config.put("StrictHostKeyChecking", "no");
         JSch jsch = new JSch();
@@ -60,13 +61,13 @@ public class MpowerSSHConnector {
             aSession.setTimeout(3000);
             aSession.setServerAliveInterval(1000 * 60);
             aSession.setServerAliveCountMax(10);
-            aSession.connect(2000);
+            aSession.connect(4000);
             this.session = aSession;
             getNumberOfSockets();
             enableEnergyMeasurement();
             updateBridgeStatus();
             this.agent = new PollingAgent(this);
-            agent.start();
+            agent.run();
             logger.info("connected to mPower on host {}", this.host);
         } catch (JSchException e) {
             logger.error("Could not connect.", e);
@@ -108,7 +109,7 @@ public class MpowerSSHConnector {
 
     public void stop() {
         if (this.agent != null) {
-            this.agent.interrupt();
+            this.agent.terminate();
         }
         if (isRunning()) {
             this.session.disconnect();
@@ -119,10 +120,12 @@ public class MpowerSSHConnector {
     protected void message(String message) {
         if (StringUtils.isNotBlank(message)) {
             String[] parts = message.split("\n");
-            for (int i = 1; i < this.ports + 1; i++) {
-                MpowerSocketState state = new MpowerSocketState(parts[4 * (i - 1)], parts[4 * (i - 1) + 1],
-                        parts[4 * (i - 1) + 2], parts[4 * (i - 1) + 3], i);
-                this.mPowerHandler.receivedUpdateFromConnector(state);
+            if (parts.length == this.ports * 4) {
+                for (int i = 1; i < this.ports + 1; i++) {
+                    MpowerSocketState state = new MpowerSocketState(parts[4 * (i - 1)], parts[4 * (i - 1) + 1],
+                            parts[4 * (i - 1) + 2], parts[4 * (i - 1) + 3], i);
+                    this.mPowerHandler.receivedUpdateFromConnector(state);
+                }
             }
         }
     }

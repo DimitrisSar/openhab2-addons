@@ -7,8 +7,9 @@ import org.slf4j.LoggerFactory;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 
-public class PollingAgent extends Thread {
+public class PollingAgent implements Runnable {
     private MpowerSSHConnector connector;
+    private boolean running = true;
     // this is the internal poll interval. Its is fixed and independent
     // from the 'item update interval'
     // the smaller the value the more instant switches will be synchronized
@@ -16,15 +17,15 @@ public class PollingAgent extends Thread {
     private static final Logger logger = LoggerFactory.getLogger(PollingAgent.class);
 
     public PollingAgent(MpowerSSHConnector connector) {
-        super("Mpower polling agent for " + connector.getId());
-        this.setDaemon(true);
+        // super("Mpower polling agent for " + connector.getId());
+        // this.setDaemon(true);
         this.connector = connector;
     }
 
     @Override
     public void run() {
         logger.debug("Polling Agent started");
-        while (!isInterrupted()) {
+        while (running) {
             try {
                 Session session = this.connector.getSession();
                 if (session != null && session.isConnected()) {
@@ -43,6 +44,7 @@ public class PollingAgent extends Thread {
                     if (StringUtils.isNotBlank(command)) {
 
                         String result = exec.execute(command);
+                        logger.debug("I will send a message now");
                         this.connector.message(result);
                     }
                 }
@@ -53,10 +55,15 @@ public class PollingAgent extends Thread {
             try {
                 Thread.sleep(pollInterval);
             } catch (InterruptedException e) {
-                logger.debug("Interrupted");
-                this.interrupt();
+                logger.debug("Got interrupted");
+                // this.interrupt();
             }
         }
+
         logger.debug("Polling Agent stopped");
+    }
+
+    public void terminate() {
+        running = false;
     }
 }

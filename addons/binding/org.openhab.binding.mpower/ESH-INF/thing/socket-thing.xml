@@ -10,7 +10,6 @@
 
 		<label>mPower Socket</label>
 		<description>A single socket on a mPower device</description>
-
 		<channels>
 			<channel id="power" typeId="power" />
 			<channel id="energy" typeId="energy" />
@@ -18,6 +17,14 @@
 			<channel id="outlet" typeId="outlet" />
 			<channel id="lastupdate" typeId="lastupdate" />
 		</channels>
+		<config-description>
+			<parameter name="socketNumber" type="integer" min="1" max="8">
+				<label>Socket Number</label>
+				<description></description>
+				<required>true</required>
+			</parameter>
+		</config-description>
+
 
 	</thing-type>
 
@@ -28,32 +35,32 @@
 		<category>Energy</category>
 		<state pattern="%.1f W" readOnly="true" />
 	</channel-type>
-    <channel-type id="energy">
-        <item-type>Number</item-type>
-        <label>Energy Consumption</label>
-        <description>Accumulated energy consumption</description>
-        <category>Energy</category>
-        <state pattern="%d Wh" readOnly="true"/>
-    </channel-type>
-    <channel-type id="voltage">
-        <item-type>Number</item-type>
-        <label>Voltage</label>
-        <description>Current Voltage</description>
-        <category>Energy</category>
-        <state pattern="%d V" readOnly="true"/>
-    </channel-type>
-    <channel-type id="outlet">
-        <item-type>Switch</item-type>
-        <label>Outlet</label>
-        <description>Switched outlet</description>
-        <category>PowerOutlet</category>
-        <state readOnly="false"/>
-    </channel-type>
-    <channel-type id="lastupdate">
-        <item-type>Number</item-type>
-        <label>Last update</label>
-        <description></description>
-        <category></category>
-        <state readOnly="true"/>
-    </channel-type>
+	<channel-type id="energy">
+		<item-type>Number</item-type>
+		<label>Energy Consumption</label>
+		<description>Accumulated energy consumption</description>
+		<category>Energy</category>
+		<state pattern="%d Wh" readOnly="true" />
+	</channel-type>
+	<channel-type id="voltage">
+		<item-type>Number</item-type>
+		<label>Voltage</label>
+		<description>Current Voltage</description>
+		<category>Energy</category>
+		<state pattern="%d V" readOnly="true" />
+	</channel-type>
+	<channel-type id="outlet">
+		<item-type>Switch</item-type>
+		<label>Outlet</label>
+		<description>Switched outlet</description>
+		<category>PowerOutlet</category>
+		<state readOnly="false" />
+	</channel-type>
+	<channel-type id="lastupdate">
+		<item-type>Number</item-type>
+		<label>Last update</label>
+		<description></description>
+		<category></category>
+		<state readOnly="true" />
+	</channel-type>
 </thing:thing-descriptions>
