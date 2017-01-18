@@ -22,25 +22,21 @@ import com.jcraft.jsch.Session;
  */
 public class MpowerSSHConnector {
     private String host;
-    private long refreshInterval = 10000;
+    private int connectTimeout = 3000;
+    private int sessionTimeout = 3000;
     private String user;
     private String password;
-
     private Session session;
-    private PollingAgent agent;
+
     private int ports = 0;
     private boolean isConnecting = false;
     private static final Logger logger = LoggerFactory.getLogger(MpowerSSHConnector.class);
     private MpowerHandler mPowerHandler;
 
-    public MpowerSSHConnector(String host, String user, String password, long refreshInterval, MpowerHandler handler) {
-
+    public MpowerSSHConnector(String host, String user, String password, MpowerHandler handler) {
         this.host = host;
         this.user = user;
         this.password = password;
-        if (refreshInterval > 0) {
-            this.refreshInterval = refreshInterval;
-        }
         this.mPowerHandler = handler;
     }
 
@@ -58,16 +54,14 @@ public class MpowerSSHConnector {
             aSession = jsch.getSession(user, host, 22);
             aSession.setPassword(password);
             aSession.setConfig(config);
-            aSession.setTimeout(3000);
+            aSession.setTimeout(sessionTimeout);
             aSession.setServerAliveInterval(1000 * 60);
             aSession.setServerAliveCountMax(10);
-            aSession.connect(4000);
+            aSession.connect(connectTimeout);
             this.session = aSession;
             getNumberOfSockets();
             enableEnergyMeasurement();
             updateBridgeStatus();
-            this.agent = new PollingAgent(this);
-            agent.run();
             logger.info("connected to mPower on host {}", this.host);
         } catch (JSchException e) {
             logger.error("Could not connect.", e);
@@ -76,6 +70,43 @@ public class MpowerSSHConnector {
         }
     }
 
+    public void stop() {
+        if (isRunning()) {
+            this.session.disconnect();
+            logger.info("Session closed to {}", this.host);
+        }
+    }
+
+    public void pollData() {
+        try {
+
+            if (session != null && session.isConnected()) {
+                SSHExecutor exec = new SSHExecutor(session);
+                StringBuilder builder = new StringBuilder();
+                if (getPorts() > 0) {
+                    builder.append("cat");
+                }
+                for (int i = 1; i < getPorts() + 1; i++) {
+                    builder.append(" /proc/power/v_rms").append(i);
+                    builder.append(" /proc/power/active_pwr").append(i);
+                    builder.append(" /proc/power/cf_count").append(i);
+                    builder.append(" /proc/power/relay").append(i);
+                }
+                String command = builder.toString();
+                if (StringUtils.isNotBlank(command)) {
+                    String result = exec.execute(command);
+                    publishStateToHandler(result);
+                }
+            }
+        } catch (JSchException e) {
+            logger.error("Failed to query mPower", e);
+        }
+    }
+
+    /**
+     * enables energy measurement on mPower. This is not enabled by default.
+     * TODO: really needed each time we connect?
+     */
     private void enableEnergyMeasurement() {
         try {
             SSHExecutor exec = new SSHExecutor(this.session);
@@ -96,6 +127,7 @@ public class MpowerSSHConnector {
             SSHExecutor exec = new SSHExecutor(this.session);
             String command = "cat /etc/version";
             String result = exec.execute(command);
+
             this.mPowerHandler.receivedBridgeStatusUpdateFromConnector(result);
         } catch (JSchException e) {
             logger.error("Failed to enable enery measurement");
@@ -107,20 +139,18 @@ public class MpowerSSHConnector {
         return this.isConnecting || (this.session != null && this.session.isConnected());
     }
 
-    public void stop() {
-        if (this.agent != null) {
-            this.agent.terminate();
-        }
-        if (isRunning()) {
-            this.session.disconnect();
-            logger.info("Session closed to {}", this.host);
-        }
-    }
-
-    protected void message(String message) {
+    /**
+     * The polling agent calls this with raw data from the mPower.
+     * This translates the raw data into MpowerSocketState objects
+     *
+     * @param message
+     */
+    protected void publishStateToHandler(String message) {
         if (StringUtils.isNotBlank(message)) {
+
             String[] parts = message.split("\n");
             if (parts.length == this.ports * 4) {
+                // logger.debug(this.getId() + " ... I will update the handler with states now.");
                 for (int i = 1; i < this.ports + 1; i++) {
                     MpowerSocketState state = new MpowerSocketState(parts[4 * (i - 1)], parts[4 * (i - 1) + 1],
                             parts[4 * (i - 1) + 2], parts[4 * (i - 1) + 3], i);
@@ -131,26 +161,12 @@ public class MpowerSSHConnector {
     }
 
     /**
-     * Polling agents gets it's session from here At the same time it serves as
-     * a watchdog If the session is broken, it will be renewed. That 'retry'
-     * works endless each minute.
-     *
-     * @return
-     */
-    protected Session getSession() {
-        if (isRunning()) {
-            return session;
-        }
-        return null;
-    }
-
-    /**
      * Sends relay switch commands
      *
      * @param socket
      * @param onOff
      */
-    public void send(int socket, OnOffType onOff) {
+    public void sendOnOff(int socket, OnOffType onOff) {
         try {
             SSHExecutor exec = new SSHExecutor(this.session);
             String onOffString = onOff == OnOffType.ON ? "1" : "0";
@@ -188,10 +204,6 @@ public class MpowerSSHConnector {
      */
     protected int getPorts() {
         return ports;
-    }
-
-    public long getRefreshInterval() {
-        return refreshInterval;
     }
 
     public String getId() {

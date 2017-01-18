@@ -37,46 +37,26 @@ import org.slf4j.LoggerFactory;
  * @author magcode - Initial contribution
  */
 public class MpowerHandler extends BaseBridgeHandler {
+    private Logger logger = LoggerFactory.getLogger(MpowerHandler.class);
     private ServiceRegistration<?> discoveryServiceRegistration;
     private MpowerSocketDiscovery discoveryService;
     private MpowerSSHConnector connector;
     private long refresh = 10000;
     private ScheduledFuture<?> watchDogJob;
+    private ScheduledFuture<?> pollingJob;
 
     public MpowerHandler(Bridge bridge) {
         super(bridge);
     }
 
-    private Logger logger = LoggerFactory.getLogger(MpowerHandler.class);
-
-    @Override
-    public void handleCommand(ChannelUID channelUID, Command command) {
-        // no commands yet. Maybe a "mPower reset" feature?
-    }
-
-    public void sendSwitchCommandToMPower(int socket, OnOffType onOff) {
-        if (this.connector.isRunning()) {
-            this.connector.send(socket, onOff);
-        }
-    }
-
     @Override
     public void initialize() {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (connector.isRunning()) {
-                    logger.trace(connector.getId() + " is running!");
-                } else {
-                    logger.info(connector.getId() + " is not running! Trying to restart.");
-                    // connector.start();
-                }
-            }
-        };
-        watchDogJob = scheduler.scheduleAtFixedRate(runnable, 0, 60, TimeUnit.SECONDS);
-
-        updateStatus(ThingStatus.UNKNOWN);
+        if (watchDogJob == null || watchDogJob.isCancelled()) {
+            watchDogJob = scheduler.scheduleAtFixedRate(watchDogRunnable, 60, 60, TimeUnit.SECONDS);
+        }
+        if (pollingJob == null || pollingJob.isCancelled()) {
+            pollingJob = scheduler.scheduleAtFixedRate(pollingAgentRunnable, 5, 5, TimeUnit.SECONDS);
+        }
 
         String model = getThing().getProperties().get(MpowerBindingConstants.DEVICE_MODEL_PROP_NAME);
         // socket discovery only when mPower has been discovered??
@@ -101,16 +81,77 @@ public class MpowerHandler extends BaseBridgeHandler {
 
         // start the connector
         if (connector == null) {
-            connector = new MpowerSSHConnector(config.getHost(), config.getUsername(), config.getPassword(),
-                    config.getRefresh(), this);
+            connector = new MpowerSSHConnector(config.getHost(), config.getUsername(), config.getPassword(), this);
         }
-        connector.start();
+        if (!connector.isRunning()) {
+            logger.debug("Trying to start connector");
+            connector.start();
+        }
+
         if (connector.isRunning()) {
             updateStatus(ThingStatus.ONLINE);
         } else {
             updateStatus(ThingStatus.OFFLINE);
         }
+        logger.debug("init done");
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void dispose() {
+        if (watchDogJob != null && !watchDogJob.isCancelled()) {
+            watchDogJob.cancel(true);
+            watchDogJob = null;
+        }
+        if (pollingJob != null && !pollingJob.isCancelled()) {
+            pollingJob.cancel(true);
+            pollingJob = null;
+        }
+
+        logger.debug("Disposing mPower bridge '{}'", getThing().getUID().getId());
+        if (connector.isRunning()) {
+            connector.stop();
+        }
+        if (discoveryService != null) {
+            unregisterDeviceDiscoveryService();
+        }
+        logger.debug("Dispose done");
+    }
+
+    @Override
+    public void handleCommand(ChannelUID channelUID, Command command) {
+        // no commands yet. Maybe a "mPower reset" feature?
+    }
+
+    public void sendSwitchCommandToMPower(int socket, OnOffType onOff) {
+        if (this.connector.isRunning()) {
+            this.connector.sendOnOff(socket, onOff);
+        }
+    }
+
+    private Runnable watchDogRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (connector.isRunning()) {
+                logger.debug(connector.getId() + " is running!");
+            } else {
+                logger.info(connector.getId() + " is not running! Trying to restart.");
+                updateStatus(ThingStatus.OFFLINE);
+                connector.start();
+            }
+        }
+    };
+
+    private Runnable pollingAgentRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (connector.isRunning()) {
+                connector.pollData();
+            }
+        }
+    };
 
     /**
      * Core feature: update channels with data from mpower
@@ -127,8 +168,8 @@ public class MpowerHandler extends BaseBridgeHandler {
             if (mpowerSocketState.getSocket() == sockNumber) {
                 MpowerSocketHandler handler = (MpowerSocketHandler) thing.getHandler();
                 MpowerSocketState oldState = handler.getCurrentState();
-                boolean needsUpdate = System.currentTimeMillis() > handler.getLastUpdate() + this.refresh;
-                logger.debug(thing.getUID().getAsString() + "needs update:" + needsUpdate);
+                long currTS = System.currentTimeMillis();
+                boolean needsUpdate = currTS > (handler.getLastUpdate() + this.refresh);
                 if (needsUpdate && (oldState == null || !oldState.equals(mpowerSocketState))) {
                     DecimalType powerState = new DecimalType(mpowerSocketState.getPower());
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_POWER).getUID(), powerState);
@@ -138,10 +179,9 @@ public class MpowerHandler extends BaseBridgeHandler {
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_ENERGY).getUID(), energyState);
                     OnOffType outletState = mpowerSocketState.isOn() ? OnOffType.ON : OnOffType.OFF;
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_OUTLET).getUID(), outletState);
-                    handler.setLastUpdate(System.currentTimeMillis());
+                    handler.setLastUpdate(currTS);
                     handler.setCurrentState(mpowerSocketState);
                 }
-
             }
         }
     }
@@ -153,22 +193,6 @@ public class MpowerHandler extends BaseBridgeHandler {
      */
     public void receivedBridgeStatusUpdateFromConnector(String firmware) {
         this.getThing().setProperty(MpowerBindingConstants.FIRMWARE_PROP_NAME, firmware);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void dispose() {
-        watchDogJob.cancel(true);
-        logger.debug("Disposing mPower bridge '{}'", getThing().getUID().getId());
-        if (connector.isRunning()) {
-            connector.stop();
-        }
-        if (discoveryService != null) {
-            unregisterDeviceDiscoveryService();
-        }
-        super.dispose();
     }
 
     /**
