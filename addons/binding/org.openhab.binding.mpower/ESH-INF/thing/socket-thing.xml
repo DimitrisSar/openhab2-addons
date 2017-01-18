@@ -27,6 +27,7 @@
 
 
 	</thing-type>
+	
 
 	<channel-type id="power">
 		<item-type>Number</item-type>
@@ -57,7 +58,7 @@
 		<state readOnly="false" />
 	</channel-type>
 	<channel-type id="lastupdate">
-		<item-type>Number</item-type>
+		<item-type>DateTime</item-type>
 		<label>Last update</label>
 		<description></description>
 		<category></category>

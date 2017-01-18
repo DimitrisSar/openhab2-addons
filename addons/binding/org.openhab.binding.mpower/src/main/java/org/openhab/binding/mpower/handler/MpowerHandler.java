@@ -7,12 +7,15 @@
  */
 package org.openhab.binding.mpower.handler;
 
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Hashtable;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.smarthome.config.discovery.DiscoveryService;
+import org.eclipse.smarthome.core.library.types.DateTimeType;
 import org.eclipse.smarthome.core.library.types.DecimalType;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.thing.Bridge;
@@ -171,6 +174,7 @@ public class MpowerHandler extends BaseBridgeHandler {
                 long currTS = System.currentTimeMillis();
                 boolean needsUpdate = currTS > (handler.getLastUpdate() + this.refresh);
                 if (needsUpdate && (oldState == null || !oldState.equals(mpowerSocketState))) {
+                    handler.setLastUpdate(currTS);
                     DecimalType powerState = new DecimalType(mpowerSocketState.getPower());
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_POWER).getUID(), powerState);
                     DecimalType volatageState = new DecimalType(mpowerSocketState.getVoltage());
@@ -179,7 +183,10 @@ public class MpowerHandler extends BaseBridgeHandler {
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_ENERGY).getUID(), energyState);
                     OnOffType outletState = mpowerSocketState.isOn() ? OnOffType.ON : OnOffType.OFF;
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_OUTLET).getUID(), outletState);
-                    handler.setLastUpdate(currTS);
+                    GregorianCalendar gc = new GregorianCalendar();
+                    gc.setTime(new Date(handler.getLastUpdate()));
+                    DateTimeType lastUpdateState = new DateTimeType(gc);
+                    updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_LASTUPDATE).getUID(), lastUpdateState);
                     handler.setCurrentState(mpowerSocketState);
                 }
             }
