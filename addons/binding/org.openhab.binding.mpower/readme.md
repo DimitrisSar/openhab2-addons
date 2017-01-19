@@ -61,7 +61,7 @@ As soon as you added an mPower strip as a thing, autodiscovery will prepare more
 ## Create things manually
 
 ```
-Bridge mpower:mpower:24_A4_3C_D7_51_EB "mPower beamer" [ host="192.168.1.26", password ="ubnt", username="ubnt" ] {
+Bridge mpower:mpower:24_A4_3C_D7_51_EB "mPower living room" [ host="192.168.1.26", password ="ubnt", username="ubnt" ] {
     socket 2 "mPower TV" [ socketNumber="2"]
     socket 3 "mPower Lights" [ socketNumber="3"]
 }
