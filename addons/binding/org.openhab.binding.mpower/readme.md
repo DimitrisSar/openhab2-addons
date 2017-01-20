@@ -120,6 +120,6 @@ Now you can persist the `enery` each day a minute before midnight.
 
 ## Read strip properties into bridge parameters
 The binding exposes some bridge information, available in the binding parameters.
-So far only "firware version" is implemented. Feel free to suggest more.
+So far only "firmware version" is implemented. Feel free to suggest more.
 
 ![Props](doc/mp-props.png)
