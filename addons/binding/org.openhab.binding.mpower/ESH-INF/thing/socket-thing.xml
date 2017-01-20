@@ -46,7 +46,7 @@
 	<channel-type id="voltage">
 		<item-type>Number</item-type>
 		<label>Voltage</label>
-		<description>Current Voltage</description>
+		<description>Current voltage</description>
 		<category>Energy</category>
 		<state pattern="%d V" readOnly="true" />
 	</channel-type>
