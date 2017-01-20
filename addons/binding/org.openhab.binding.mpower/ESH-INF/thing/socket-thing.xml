@@ -24,10 +24,7 @@
 				<required>true</required>
 			</parameter>
 		</config-description>
-
-
 	</thing-type>
-	
 
 	<channel-type id="power">
 		<item-type>Number</item-type>

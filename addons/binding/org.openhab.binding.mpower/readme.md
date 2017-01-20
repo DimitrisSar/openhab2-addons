@@ -1,5 +1,9 @@
 # Ubiquiti Networks mPower binding
 
+![Head](doc/mp.jpg)
+
+This binding allows to control mPower devices.
+
 https://www.ubnt.com/mfi/mpower/
 
 You do not need the mFi Controller software.
@@ -62,11 +66,17 @@ refresh|in ms
 
 
 ## Let autodiscovery create the bridge
-Autodiscovery scans your network and will add new mPower devices to your inbox. Please note: this won't happen if you added the device manually in a *.thing file.
+Autodiscovery scans your network and will add new mPower devices to your inbox. Please note: this won't happen if you added the device manually in a *.things file.
+
+![Scan](doc/mp-scan1.png)
 
 ## Let autodiscovery create the sockets
 As soon as you added an mPower strip as a thing, autodiscovery will prepare more things: one for each socket. You can find it in your inbox.
 
+![Scan](doc/mp-scan2.png)
+
+Now you can control the sockets.
+![Scan](doc/mp-control.png)
 
 ## Create things manually
 You can also add mPower and socket things manually. Please note the syntax for the sockets:
@@ -84,13 +94,13 @@ Bridge mpower:mpower:24_A4_3C_D7_51_EB "mPower living room" [ host="192.168.1.26
 ``` 
 Make sure that the UID is correct. Otherwise autodiscovery will add the same mPower bridge again to your inbox. To find out the right UID you have 2 options:
 
-* Use your OS and find out the serial number of your mPower
+* Use your OS and find out the serial number of your mPower. Replace all ":" by "_" to get the right format.
+![Serial](doc/mp-serial.png)
 * Use auto discovery (without confirming the item in the inbox) and copy the UID from there
+![Scan](doc/mp-scan3.png)
 
 
 # Extra features
-## Power messurement enabling
-The binding enables power measurement automatically on the strip.
 
 ## Energy consumption statistics
 By default the channel `energy` cumulates watt-hours (Wh).
@@ -112,3 +122,4 @@ Now you can persist the `enery` each day a minute before midnight.
 The binding exposes some bridge information, available in the binding parameters.
 So far only "firware version" is implemented. Feel free to suggest more.
 
+![Props](doc/mp-props.png)

@@ -167,8 +167,13 @@ public class MpowerHandler extends BaseBridgeHandler {
     public void receivedUpdateFromConnector(MpowerSocketState mpowerSocketState) {
         // maybe change status here? Its back online once there comes data.
         for (Thing thing : getThing().getThings()) {
-            int sockNumber = Integer
-                    .parseInt(thing.getConfiguration().get(MpowerBindingConstants.SOCKET_NUMBER_PROP_NAME).toString());
+            String socketString = thing.getConfiguration().get(MpowerBindingConstants.SOCKET_NUMBER_PROP_NAME)
+                    .toString();
+            if (!StringUtils.isNumeric(socketString)) {
+                logger.warn("Missing socket number. Ignoring.");
+                return;
+            }
+            int sockNumber = Integer.parseInt(socketString);
             if (mpowerSocketState.getSocket() == sockNumber) {
                 MpowerSocketHandler handler = (MpowerSocketHandler) thing.getHandler();
                 MpowerSocketState oldState = handler.getCurrentState();
