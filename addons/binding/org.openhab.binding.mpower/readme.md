@@ -61,15 +61,20 @@ refresh|in ms
 
 
 
-## Let autodiscovery create the bride
+## Let autodiscovery create the bridge
 Autodiscovery scans your network and will add new mPower devices to your inbox. Please note: this won't happen if you added the device manually in a *.thing file.
 
 ## Let autodiscovery create the sockets
-
-As soon as you added an mPower strip as a thing, autodiscovery will prepare more things: one for each socket.
+As soon as you added an mPower strip as a thing, autodiscovery will prepare more things: one for each socket. You can find it in your inbox.
 
 
 ## Create things manually
+You can also add mPower and socket things manually. Please note the syntax for the sockets:
+```
+socket <unique id, simply use the socket number here> "<label>" [ socketNumber="<the socket number on the mPower>"] 
+```
+
+The following code provides an example. 
 
 ```
 Bridge mpower:mpower:24_A4_3C_D7_51_EB "mPower living room" [ host="192.168.1.26", password ="ubnt", username="ubnt" ] {
@@ -77,6 +82,11 @@ Bridge mpower:mpower:24_A4_3C_D7_51_EB "mPower living room" [ host="192.168.1.26
     socket 3 "mPower Lights" [ socketNumber="3"]
 }
 ``` 
+Make sure that the UID is correct. Otherwise autodiscovery will add the same mPower bridge again to your inbox. To find out the right UID you have 2 options:
+
+* Use your OS and find out the serial number of your mPower
+* Use auto discovery (without confirming the item in the inbox) and copy the UID from there
+
 
 # Extra features
 ## Power messurement enabling
