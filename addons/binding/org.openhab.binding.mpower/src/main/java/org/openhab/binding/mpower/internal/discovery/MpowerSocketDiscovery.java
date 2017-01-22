@@ -19,6 +19,13 @@ import org.openhab.binding.mpower.MpowerBindingConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An discovery service which allows to discover mPower sockets. Its only triggered manually once a new mPower has been
+ * discovered.
+ *
+ * @author magcode
+ *
+ */
 public class MpowerSocketDiscovery extends AbstractDiscoveryService {
     public MpowerSocketDiscovery(int timeout) throws IllegalArgumentException {
         super(timeout);

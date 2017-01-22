@@ -47,4 +47,7 @@ public class MpowerBindingConstants {
             THING_TYPE_SOCKET);
     public final static Set<ThingTypeUID> SUPPORTED_SOCKET_THING_TYPES_UIDS = ImmutableSet.of(THING_TYPE_SOCKET);
     public final static String MANUFACTURER = "Ubiquiti Networks";
+
+    // once a socket has been switched we wait 3 seconds until we update the channels
+    public final static long waitAfterSwitch = 3000;
 }

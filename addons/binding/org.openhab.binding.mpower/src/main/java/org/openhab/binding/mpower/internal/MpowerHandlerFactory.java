@@ -33,7 +33,6 @@ public class MpowerHandlerFactory extends BaseThingHandlerFactory {
     }
 
     @Override
-
     protected ThingHandler createHandler(Thing thing) {
         if (THING_TYPE_MPOWER.equals(thing.getThingTypeUID())) {
             return new MpowerHandler((Bridge) thing);
@@ -42,5 +41,4 @@ public class MpowerHandlerFactory extends BaseThingHandlerFactory {
         }
         return null;
     }
-
 }

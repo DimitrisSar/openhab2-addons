@@ -25,6 +25,7 @@ import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
 import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.binding.BaseBridgeHandler;
+import org.eclipse.smarthome.core.thing.binding.ThingHandler;
 import org.eclipse.smarthome.core.types.Command;
 import org.openhab.binding.mpower.MpowerBindingConstants;
 import org.openhab.binding.mpower.config.MpowerDeviceConfig;
@@ -38,16 +39,34 @@ import org.slf4j.LoggerFactory;
 /**
  * The {@link MpowerHandler}
  *
- * @author magcode - Initial contribution
+ * @author magcode - main class. Dispatches connection to mPower and sending/receiving commands and data
+ *
+ *
+ *         Some notes regarding timing:
+ *
+ *         Optimized for a good balance: Don't spam OH with too many updates. vs. Don't bother the mPower with too many
+ *         value reading requests.
+ *         If you switch a socket, after 3 seconds an update will be forced. This gives a nice feedback in the UI.
+ *         If a socket is turned off, basically no updates are pushed to Openhab. (you can see this by watching the
+ *         "Last Update" channel.)
+ *         If a socket is turned on, its updated every x seconds (as configured in the bridge/mPower). Even here there
+ *         might be an older "Last Update" value e.g. your device consumes a steady "Power" of 3 Watts, the "Voltage"
+ *         stays steady at 230V, the "Energy Consumption" is climbing slowly only.
+ *         The minimum refresh is 10.000 ms. Default is 20.000 ms.
+ *
+ *
  */
 public class MpowerHandler extends BaseBridgeHandler {
     private Logger logger = LoggerFactory.getLogger(MpowerHandler.class);
     private ServiceRegistration<?> discoveryServiceRegistration;
     private MpowerSocketDiscovery discoveryService;
     private MpowerSSHConnector connector;
-    private long refresh = 10000;
+    private long defaultRefresh = 20000;
+    private long minimumRefresh = 10000;
+    private long refresh;
     private ScheduledFuture<?> watchDogJob;
     private ScheduledFuture<?> pollingJob;
+    private int watchDogScheduleSeconds = 120;
 
     public MpowerHandler(Bridge bridge) {
         super(bridge);
@@ -55,11 +74,28 @@ public class MpowerHandler extends BaseBridgeHandler {
 
     @Override
     public void initialize() {
+        // validate config
+        MpowerDeviceConfig config = this.getConfigAs(MpowerDeviceConfig.class);
+        if (StringUtils.isBlank(config.getUsername()) || StringUtils.isBlank(config.getPassword())) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Please set username and password.");
+            return;
+        }
+
+        this.refresh = config.getRefresh();
+        if (this.refresh == 0) {
+            this.refresh = defaultRefresh;
+        }
+        if (this.refresh < minimumRefresh) {
+            logger.warn("Refresh is set below {}. Using default {} instead", minimumRefresh, defaultRefresh);
+        }
+
         if (watchDogJob == null || watchDogJob.isCancelled()) {
-            watchDogJob = scheduler.scheduleAtFixedRate(watchDogRunnable, 60, 60, TimeUnit.SECONDS);
+            watchDogJob = scheduler.scheduleAtFixedRate(watchDogRunnable, watchDogScheduleSeconds,
+                    watchDogScheduleSeconds, TimeUnit.SECONDS);
         }
         if (pollingJob == null || pollingJob.isCancelled()) {
-            pollingJob = scheduler.scheduleAtFixedRate(pollingAgentRunnable, 5, 5, TimeUnit.SECONDS);
+            pollingJob = scheduler.scheduleAtFixedRate(pollingAgentRunnable, 5000, refresh, TimeUnit.MILLISECONDS);
         }
 
         String model = getThing().getProperties().get(MpowerBindingConstants.DEVICE_MODEL_PROP_NAME);
@@ -74,28 +110,13 @@ public class MpowerHandler extends BaseBridgeHandler {
             }
         }
 
-        // validate config
-        MpowerDeviceConfig config = this.getConfigAs(MpowerDeviceConfig.class);
-        this.refresh = config.getRefresh();
-        if (StringUtils.isBlank(config.getUsername()) || StringUtils.isBlank(config.getPassword())) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    "Please set username and password.");
-            return;
-        }
-
         // start the connector
         if (connector == null) {
             connector = new MpowerSSHConnector(config.getHost(), config.getUsername(), config.getPassword(), this);
         }
         if (!connector.isRunning()) {
             logger.debug("Trying to start connector");
-            connector.start();
-        }
-
-        if (connector.isRunning()) {
-            updateStatus(ThingStatus.ONLINE);
-        } else {
-            updateStatus(ThingStatus.OFFLINE);
+            reconnect();
         }
         logger.debug("init done");
     }
@@ -121,6 +142,7 @@ public class MpowerHandler extends BaseBridgeHandler {
         if (discoveryService != null) {
             unregisterDeviceDiscoveryService();
         }
+        connector = null;
         logger.debug("Dispose done");
     }
 
@@ -129,9 +151,17 @@ public class MpowerHandler extends BaseBridgeHandler {
         // no commands yet. Maybe a "mPower reset" feature?
     }
 
+    /**
+     * Lets mPower switch a socket
+     *
+     * @param socket
+     * @param onOff
+     */
     public void sendSwitchCommandToMPower(int socket, OnOffType onOff) {
         if (this.connector.isRunning()) {
             this.connector.sendOnOff(socket, onOff);
+            // force update 3 seconds after switch. Gives a nice UI feedback
+            scheduler.schedule(pollingAgentRunnable, MpowerBindingConstants.waitAfterSwitch, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -143,7 +173,7 @@ public class MpowerHandler extends BaseBridgeHandler {
             } else {
                 logger.info(connector.getId() + " is not running! Trying to restart.");
                 updateStatus(ThingStatus.OFFLINE);
-                connector.start();
+                reconnect();
             }
         }
     };
@@ -156,6 +186,27 @@ public class MpowerHandler extends BaseBridgeHandler {
             }
         }
     };
+
+    /**
+     * tries to connect and updates all things
+     */
+    private void reconnect() {
+        connector.start();
+        if (connector.isRunning()) {
+            updateStatus(ThingStatus.ONLINE);
+        } else {
+            updateStatus(ThingStatus.OFFLINE);
+        }
+        // mark all sockets offline or online
+        for (Thing thing : getThing().getThings()) {
+            ThingHandler thingHandler = thing.getHandler();
+            if (thingHandler != null) {
+                thingHandler.bridgeStatusChanged(getThing().getStatusInfo());
+                logger.debug("Updating {} to {} because bridge is {}", thing.getUID(), getThing().getStatusInfo(),
+                        getThing().getStatusInfo());
+            }
+        }
+    }
 
     /**
      * Core feature: update channels with data from mpower
@@ -177,10 +228,8 @@ public class MpowerHandler extends BaseBridgeHandler {
             if (mpowerSocketState.getSocket() == sockNumber) {
                 MpowerSocketHandler handler = (MpowerSocketHandler) thing.getHandler();
                 MpowerSocketState oldState = handler.getCurrentState();
-                long currTS = System.currentTimeMillis();
-                boolean needsUpdate = currTS > (handler.getLastUpdate() + this.refresh);
-                if (needsUpdate && (oldState == null || !oldState.equals(mpowerSocketState))) {
-                    handler.setLastUpdate(currTS);
+
+                if ((oldState == null || !oldState.equals(mpowerSocketState))) {
                     DecimalType powerState = new DecimalType(mpowerSocketState.getPower());
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_POWER).getUID(), powerState);
                     DecimalType volatageState = new DecimalType(mpowerSocketState.getVoltage());
@@ -190,7 +239,7 @@ public class MpowerHandler extends BaseBridgeHandler {
                     OnOffType outletState = mpowerSocketState.isOn() ? OnOffType.ON : OnOffType.OFF;
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_OUTLET).getUID(), outletState);
                     GregorianCalendar gc = new GregorianCalendar();
-                    gc.setTime(new Date(handler.getLastUpdate()));
+                    gc.setTime(new Date());
                     DateTimeType lastUpdateState = new DateTimeType(gc);
                     updateState(thing.getChannel(MpowerBindingConstants.CHANNEL_LASTUPDATE).getUID(), lastUpdateState);
                     handler.setCurrentState(mpowerSocketState);
@@ -234,5 +283,9 @@ public class MpowerHandler extends BaseBridgeHandler {
             discoveryServiceRegistration = null;
             discoveryService = null;
         }
+    }
+
+    public long getRefresh() {
+        return this.refresh;
     }
 }

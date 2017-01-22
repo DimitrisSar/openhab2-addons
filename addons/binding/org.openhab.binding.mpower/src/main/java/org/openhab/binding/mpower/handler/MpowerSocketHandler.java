@@ -26,7 +26,6 @@ import org.openhab.binding.mpower.internal.MpowerSocketState;
 public class MpowerSocketHandler extends BaseThingHandler {
 
     private MpowerSocketState currentState;
-    private long lastUpdate;
 
     public MpowerSocketHandler(Thing thing) {
         super(thing);
@@ -53,13 +52,5 @@ public class MpowerSocketHandler extends BaseThingHandler {
 
     public void setCurrentState(MpowerSocketState currentState) {
         this.currentState = currentState;
-    }
-
-    public long getLastUpdate() {
-        return lastUpdate;
-    }
-
-    public void setLastUpdate(long lastUpdate) {
-        this.lastUpdate = lastUpdate;
     }
 }

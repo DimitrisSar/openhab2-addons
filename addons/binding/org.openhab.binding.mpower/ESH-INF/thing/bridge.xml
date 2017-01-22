@@ -24,11 +24,11 @@
 				<description>The hostname or IP</description>
 				<required>true</required>
 			</parameter>
-			<parameter name="refresh" type="integer" min="5000">
+			<parameter name="refresh" type="integer" min="10000">
 				<label>Refresh intervall</label>
-				<description>The refresh intervall in ms (defaults to 10.000ms). Minimum is 5.000ms</description>
+				<description>The refresh intervall in ms (defaults to 20.000ms). Minimum is 10.000ms</description>
 				<required>false</required>
-				<default>10000</default>
+				<default>20000</default>
 			</parameter>
 		</config-description>
 	</bridge-type>

@@ -15,7 +15,7 @@
 			<channel id="energy" typeId="energy" />
 			<channel id="voltage" typeId="voltage" />
 			<channel id="outlet" typeId="outlet" />
-			<channel id="lastupdate" typeId="lastupdate" />
+			<channel id="lastupdate" typeId="lastupdate"/>
 		</channels>
 		<config-description>
 			<parameter name="socketNumber" type="integer" min="1" max="8">
@@ -54,7 +54,7 @@
 		<category>PowerOutlet</category>
 		<state readOnly="false" />
 	</channel-type>
-	<channel-type id="lastupdate">
+	<channel-type id="lastupdate" advanced="true">
 		<item-type>DateTime</item-type>
 		<label>Last update</label>
 		<description></description>
