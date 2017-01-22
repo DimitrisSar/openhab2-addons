@@ -47,7 +47,7 @@ Channel | description
 power|The current power draw in Watt
 voltage|Current voltage
 outlet|The switch
-energy|Accumulated energy consumption
+energy|Accumulated energy consumption in Watt hours (Wh)
 lastUpdated|the date holding the last update timestamp. Usually this is not needed.
 
 
@@ -59,7 +59,7 @@ Parameter | Description
 user|mPower username (default set to `ubnt`)
 password|mPower password (default set to `ubnt`)
 host|IP address or hostname of the mPower. Autodiscovery will set this value for you. 
-refresh|in ms
+refresh|in ms (default set to `10000`)
 
 
 
@@ -81,7 +81,7 @@ Now you can control the sockets.
 ## Create things manually
 You can also add mPower and socket things manually. Please note the syntax for the sockets:
 ```
-socket <unique id, simply use the socket number here> "<label>" [ socketNumber="<the socket number on the mPower>"] 
+socket <unique id, simply use the socket number here> "<label>" [ socketNumber="<the number of the socket on the mPower>"] 
 ```
 
 The following code provides an example. 
