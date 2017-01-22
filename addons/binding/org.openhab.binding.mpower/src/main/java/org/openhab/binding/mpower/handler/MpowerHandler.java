@@ -73,6 +73,12 @@ public class MpowerHandler extends BaseBridgeHandler {
     }
 
     @Override
+    public void handleRemoval() {
+        // how to remove the sockets?
+        super.handleRemoval();
+    }
+
+    @Override
     public void initialize() {
         // validate config
         MpowerDeviceConfig config = this.getConfigAs(MpowerDeviceConfig.class);
@@ -288,4 +294,5 @@ public class MpowerHandler extends BaseBridgeHandler {
     public long getRefresh() {
         return this.refresh;
     }
+
 }

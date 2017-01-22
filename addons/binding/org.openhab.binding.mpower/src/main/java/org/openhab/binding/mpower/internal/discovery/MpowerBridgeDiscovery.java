@@ -90,12 +90,11 @@ public class MpowerBridgeDiscovery implements UpnpDiscoveryParticipant {
         if (isAutoDiscoveryEnabled) {
             if (StringUtils.containsIgnoreCase(device.getDetails().getManufacturerDetails().getManufacturer(),
                     MpowerBindingConstants.MANUFACTURER)) {
-                logger.debug("Manufacturer matched: search: {}, device value: {}.", MpowerBindingConstants.MANUFACTURER,
-                        device.getDetails().getManufacturerDetails().getManufacturer());
 
                 String deviceModel = device.getDetails().getModelDetails().getModelNumber();
                 ThingTypeUID thingTypeUID = MpowerBindingConstants.THING_TYPE_MPOWER;
                 if (isSupportedDeviceModel(deviceModel)) {
+                    logger.debug("Found new mPower {}, device {}.", MpowerBindingConstants.MANUFACTURER, deviceModel);
                     result = new ThingUID(thingTypeUID, device.getDetails().getSerialNumber().replace(":", "_"));
                 }
 
