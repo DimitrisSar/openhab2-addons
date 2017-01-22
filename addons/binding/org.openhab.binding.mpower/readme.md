@@ -88,8 +88,8 @@ The following code provides an example.
 
 ```
 Bridge mpower:mpower:24_A4_3C_D7_51_EB "mPower living room" [ host="192.168.1.26", password ="ubnt", username="ubnt" ] {
-    socket 2 "mPower TV" [ socketNumber="2"]
-    socket 3 "mPower Lights" [ socketNumber="3"]
+    socket 2 "mPower TV" [ socketNumber=2]
+    socket 3 "mPower Lights" [ socketNumber=3]
 }
 ``` 
 Make sure that the UID is correct. Otherwise autodiscovery will add the same mPower bridge again to your inbox. To find out the right UID you have 2 options:
